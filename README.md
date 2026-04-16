@@ -7,18 +7,31 @@ Built on a 570-trade historical dataset, a defined playbook system, and a propri
 
 ---
 
+## Platform
+
+- **Desktop App:** Electron (Windows) — standalone .exe installer
+- **Browser:** HTML single file — open in Chrome or Edge
+- **Mobile:** Planned via Capacitor (iOS + Android)
+- **AI Engine:** Claude Sonnet (Anthropic API)
+- **Charting:** TradingView
+
+---
+
 ## What It Does
 
-- **Pre-trade checklist** — evaluates your ALPHA criteria in real time and scores your setup from 0-6
+- **Pre-trade checklist** — evaluates your ALPHA criteria in real time and scores your setup 0-6
 - **Auto position sizing** — recommends exact dollar risk based on market conditions, timeframe, and confirmation conviction
-- **Contract calculator** — takes your entry, stop loss, and take profit prices and calculates contracts, trade risk, potential profit, and R:R ratio
+- **Contract calculator** — takes entry, stop loss, and take profit prices and calculates contracts, trade risk, potential profit, and R:R ratio
+- **Direction-aware SL/TP** — labels and validates stop loss and take profit based on long or short direction
 - **ALPHA detection** — automatically identifies when a setup is approaching ALPHA status and alerts you
-- **Tilt detection** — monitors trade count and conditions and warns you when tilt risk is elevated
+- **Pre-entry preparation check** — 4-point checklist confirming you were at your desk, had adequate time, defined SL/TP before entry, and are at peace going in
+- **Hold timer** — starts at entry, counts down to first 5m candle close, fires a caddy message when it's time to evaluate
+- **Tilt detection** — monitors trade count and conditions and warns when tilt risk is elevated
 - **AI caddy chat** — powered by Claude AI, knows your full trading plan, playbooks, and historical mistake patterns
 - **Voice input** — speak to StratCaddi hands-free during active trading
-- **Drag to reorder** — customize your checklist panel layout and lock it in place
-- **Light and dark mode** — with time zone and time format settings
-- **Alerts banner** — real-time warnings for conflicts, R:R violations, daily loss limits, economic calendar, and ALPHA setups
+- **Drag to reorder** — customize checklist panel layout, locked by default
+- **Light and dark mode** — with timezone and time format settings in gear menu
+- **Alerts banner** — real-time warnings for conflicts, R:R violations, daily loss limits, economic calendar, ALPHA setups, prep issues, and tilt
 
 ---
 
@@ -51,7 +64,16 @@ Built on a 570-trade historical dataset, a defined playbook system, and a propri
 | High | $600 |
 
 ### Timeframe Cap
-On 1m, 2m, 3m, and 15m timeframes conviction is automatically dropped one tier due to higher risk. Maximum Risk On sizing on these timeframes is $300.
+On 1m, 2m, 3m, and 15m timeframes conviction drops one tier automatically due to higher risk. Maximum Risk On sizing on these timeframes is $300. If the result after capping is too low the app fires a DO NOT TRADE warning.
+
+### Overall Conviction (Auto-Calculated)
+Overall conviction is derived automatically — never manually selected.
+
+| Condition | Conviction |
+|---|---|
+| 6/6 + IDEAL market | High |
+| 5/6 or FAIR market | Standard |
+| 4/6 or below or POOR market | Low |
 
 ---
 
@@ -67,14 +89,26 @@ All 6 must be checked for Risk On status:
 
 ---
 
-## Overall Conviction (Auto-Calculated)
-Overall conviction is derived automatically from checklist score and market conditions — it is never manually selected.
+## Pre-Entry Preparation Checklist
+Added April 16, 2026 based on live trade journal analysis. Incomplete preparation is the #1 trigger for early exits and improper trade management.
 
-| Condition | Conviction |
-|---|---|
-| 6/6 + IDEAL market | High |
-| 5/6 or FAIR market | Standard |
-| 4/6 or below or POOR market | Low |
+1. I was at my desk when this set up
+2. I had adequate time to assess before entry
+3. SL and TP defined before entry
+4. I am at peace — not rushed, not FOMO
+
+If any of these are unchecked the alerts banner fires a specific warning. If preparation is incomplete StratCaddi will tell you directly before entry.
+
+---
+
+## Hold Timer Rule
+Added April 16, 2026 based on live trade journal analysis.
+
+- Hit ▶ ENTER when you get into a trade
+- Timer counts up and shows countdown to first 5m candle close
+- At 5 minutes the caddy fires: "First 5m candle just closed. Time to evaluate. Only make a decision if something has materially changed from your plan."
+- No trimming, no exiting, no adjusting within the first 5 minutes unless stop loss is hit
+- Hit ■ EXIT when out — timer resets
 
 ---
 
@@ -98,7 +132,7 @@ Significant structure break with a clean retest. Continuation trade with the tre
 ---
 
 ## ALPHA Setup Definition
-An ALPHA trade is the highest quality setup in the system. Criteria:
+An ALPHA trade is the highest quality setup in the system:
 - LVR or Break + Retest at a macro level on watch for multiple sessions
 - Full confluence across all correlated instruments
 - Pre-planned before the session
@@ -108,7 +142,7 @@ An ALPHA trade is the highest quality setup in the system. Criteria:
 - At peace at entry — no rushing, no FOMO
 - SL and TP defined before entry
 
-ALPHA is auto-detected in the app when 5/6 criteria are checked, only CC is missing, timeframe is 5m, market conditions are not Poor, and confirmation conviction is not Low.
+ALPHA is auto-detected when 5/6 criteria are checked, only CC is missing, timeframe is 5m, market conditions are not Poor, and confirmation conviction is not Low. The alert chip stays persistent until manually dismissed with ✕.
 
 ---
 
@@ -122,10 +156,13 @@ Exception: Crude Oil Inventories does not apply when trading indices.
 Never take a trade under 2:1 Risk to Reward. App warns automatically when R:R falls below 2:1.
 
 **Confluence Conflict**
-Market in Confluence cannot be selected simultaneously with Poor Market Conditions. App blocks and warns.
+Market in Confluence cannot be selected simultaneously with Poor Market Conditions. App blocks and warns with red flashing bubble.
 
 **One Instrument**
 One instrument at a time. No multi-position trading.
+
+**Preparation Rule**
+If you were not at your desk when the setup formed, or did not have adequate time to assess, reduce size or wait for the next setup. A rushed entry is not an ALPHA entry.
 
 ---
 
@@ -135,14 +172,14 @@ One instrument at a time. No multi-position trading.
 3. Over leveraging
 4. Double entry / chasing after stop out
 5. Execution errors — rushing, wrong contract size
-6. Going on tilt — rapid-fire trades after losses
+6. Going on tilt — rapid-fire trades after losses (Jan 6 2026: 20 MNQ trades)
 7. Late entry — hesitating after a prior loss
 8. Not enough size on ALPHA setups
 9. Improper planning — missing context before entry
 
 ---
 
-## Tilt Detection Signals
+## Tilt Detection
 App automatically flags when:
 - 5 or more trades taken in a session
 - Daily loss approaching $600 limit
@@ -180,11 +217,11 @@ App automatically flags when:
 ## Roadmap
 
 ### In Progress
-- [ ] Electron desktop app build
 - [ ] Polygon.io live price feed integration
-- [ ] Economic calendar API integration
+- [ ] Economic calendar API integration (auto-check before entry)
 - [ ] Image upload for chart analysis inside app chat
 - [ ] StratCaddi voice and personality refinement
+- [ ] Move working folder to Documents for clean GitHub sync
 
 ### Planned
 - [ ] Capacitor mobile app (iOS + Android)
@@ -193,29 +230,36 @@ App automatically flags when:
 - [ ] Dynamic position sizing system expansion
 - [ ] NinjaTrader algo trading system (separate project)
 - [ ] Private hosting on Netlify or GitHub Pages
+- [ ] Daily P&L tracker integration
 
 ### Completed
-- [x] Core pre-trade checklist with ALPHA scoring
+- [x] Core pre-trade checklist with ALPHA scoring (6 criteria)
 - [x] Auto position sizing recommendation engine
+- [x] Auto-derived Overall Conviction from checklist + market conditions
 - [x] Contract calculator with entry/SL/TP price inputs
-- [x] ALPHA setup auto-detection
+- [x] Direction-aware SL/TP labels and validation
+- [x] R:R calculation with 2:1 minimum warning
+- [x] ALPHA setup auto-detection with persistent dismissible chip
 - [x] Timeframe conviction cap (1m/2m/3m/15m)
 - [x] Market Conditions single-select (Poor/Fair/Ideal)
-- [x] Confluence conflict detection and warning
-- [x] R:R minimum warning (below 2:1)
+- [x] Confluence conflict detection — red flash + alert
+- [x] Pre-entry preparation checklist (4 points)
+- [x] Hold timer with 5m candle countdown and caddy message
 - [x] Tilt detection alerts
-- [x] Economic calendar reminder chip
-- [x] Daily loss limit tracker
-- [x] Drag to reorder sections with lock toggle
+- [x] Economic calendar reminder chip with dismiss
+- [x] Daily loss limit tracker with warnings
+- [x] Drag to reorder sections with lock toggle (locked by default)
+- [x] Lock/unlock moved into Settings gear
 - [x] Light and dark mode
-- [x] Settings gear (timezone, time format, dark mode)
+- [x] Settings gear (timezone, time format, dark mode, section lock)
 - [x] Voice input
 - [x] Micro/Mini toggle with full instrument descriptions
-- [x] AI caddy chat powered by Claude
-- [x] Direction-aware SL/TP labels and validation
+- [x] AI caddy chat powered by Claude Sonnet
 - [x] LVR sub-checklist with yellow prompt system
-- [x] Sections locked by default on startup
 - [x] Account name editable inline
+- [x] Electron desktop app — Windows .exe installer built
+- [x] Private GitHub repo with version control
+- [x] Custom S mark icon
 
 ---
 
@@ -223,6 +267,7 @@ App automatically flags when:
 - **Historical trade data:** 570 trades exported from Tradezella (Oct 2024 — Jan 2026)
 - **Journal data:** Pre and post session analysis from Tradezella
 - **Chart screenshots:** Markup screenshots from TradingView sessions
+- **Live journal integration:** Apr 16 2026 MES trade analysis fed directly into app rules
 - **AI engine:** Claude Sonnet (Anthropic)
 
 ---
@@ -230,20 +275,35 @@ App automatically flags when:
 ## Tech Stack
 - HTML / CSS / JavaScript (single file)
 - Manrope font (Google Fonts)
+- Electron (desktop app — Windows)
 - Claude API (Anthropic) for AI caddy chat
 - TradingView for charting
-- Planned: Electron for desktop, Capacitor for mobile, Polygon.io for live data
+- GitHub Desktop for version control
+- Planned: Capacitor for mobile, Polygon.io for live data, ForexFactory/TradingEconomics for calendar
 
 ---
 
 ## Version History
 
-### v1.0 — April 2026
-Initial build. Core checklist, position sizing, AI chat, contract calculator, alerts system, drag to reorder, light/dark mode, voice input.
+### v1.0.0 — April 16, 2026
+Full initial build. Core checklist, auto position sizing, AI chat, contract calculator, alerts system, drag to reorder, light/dark mode, voice input, pre-entry prep checklist, hold timer, Electron desktop app, Windows installer, GitHub repo established.
+
+---
+
+## Commit Workflow
+Every update follows this process:
+1. Make changes to `index.html` in the GitHub repo folder (Documents\StratCaddi)
+2. Open GitHub Desktop
+3. Changed files appear automatically
+4. Write a commit message describing what changed
+5. Commit to main
+6. Push origin
 
 ---
 
 ## Notes
 This repository is **private**. Do not make public. Contains proprietary trading rules, position sizing logic, and strategic playbook definitions.
 
-If sharing with collaborators, share read-only access only and never include API keys in committed files.
+Never commit the Anthropic API key to any file in this repo. Store it locally in your working copy only.
+
+If sharing with collaborators, share read-only access only.
