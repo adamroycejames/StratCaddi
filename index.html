@@ -260,6 +260,19 @@ header{background:var(--header-bg);border-bottom:1px solid rgba(20,196,170,0.15)
         <div class="gdrow"><span class="gdname">Dark Mode</span>
           <div class="ttrack" id="ttrack" onclick="toggleTheme()"><div class="tthumb"></div></div>
         </div>
+        <div class="gdrow"><span class="gdname">Caddy Voice</span>
+          <div class="ttrack" id="voice-track" onclick="toggleCaddyVoice()"><div class="tthumb"></div></div>
+        </div>
+        <div class="gdrow"><span class="gdname">Voice</span>
+          <select class="gdsel" id="voice-sel" onchange="setVoice()"><option value="">Loading...</option></select>
+        </div>
+        <div class="gdrow"><span class="gdname">Speed</span>
+          <select class="gdsel" id="voice-rate">
+            <option value="0.8">Slow</option>
+            <option value="1.0" selected>Normal</option>
+            <option value="1.2">Fast</option>
+          </select>
+        </div>
         <div style="height:1px;background:rgba(255,255,255,0.08);margin:4px 0 8px"></div>
         <div class="gdlabel">Layout</div>
         <div class="gdrow"><span class="gdname">Section Order</span>
@@ -442,10 +455,17 @@ header{background:var(--header-bg);border-bottom:1px solid rgba(20,196,170,0.15)
       <div class="qb" onclick="qM('What are my biggest mistake patterns from my trading history?')">📊 My patterns</div>
     </div>
     <div class="vstatus" id="vstatus">🎤 LISTENING...</div>
+    <div id="lock-indicator" style="display:none;font-size:9px;font-weight:700;color:var(--teal);text-align:center;letter-spacing:0.06em;text-transform:uppercase;animation:pulse 1.5s infinite">🔒 LOCKED — ALWAYS LISTENING</div>
+    <div id="img-preview-wrap" style="display:none;position:relative;width:fit-content;margin-bottom:4px">
+      <img id="img-preview" style="max-height:80px;max-width:200px;border-radius:6px;border:1px solid var(--border2);display:block"/>
+      <button onclick="clearImage()" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--red);border:none;color:#fff;font-size:11px;cursor:pointer;font-weight:800;line-height:1">x</button>
+    </div>
     <div class="irow">
       <textarea class="cin" id="cin" rows="2" placeholder="Type or speak to StratCaddi..." onkeydown="hKey(event)"></textarea>
       <div class="ibtns">
-        <button class="vbtn" id="vbtn" onclick="toggleVoice()">🎤</button>
+        <input type="file" id="img-input" accept="image/*" style="display:none" onchange="handleImage(event)">
+        <button class="vbtn" onclick="document.getElementById('img-input').click()" title="Upload chart screenshot">📎</button>
+        <button class="vbtn" id="vbtn" onclick="toggleVoice()" onmousedown="startHold()" onmouseup="endHold()" ontouchstart="startHold()" ontouchend="endHold()" title="Tap to record | Hold + slide up to lock">🎤</button>
         <button class="sndbtn" id="sndbtn" onclick="sendM()">SEND</button>
       </div>
     </div>
@@ -828,13 +848,24 @@ function ctx(){
   const prepMissing=prepChecks.filter(k=>!S.checks.has(k));
   return`STATE: Ticker:${document.getElementById('ticker').value||'not set'} MM:${S.mm} Side:${S.side||'not set'} PB:${S.pb||'not set'} TF:${S.tf||'not set'} MC:${S.mc||'not set'} Score:${sc}/6 Missing:${missing.join(',')|| 'none'} Conv:${conv} CC:${lbl[S.ccConv]} Capped:${cappedDown?'YES':'no'} Rec:${mode} $${size||'—'} NoTrade:${noTrade} PrepComplete:${prepComplete?'YES':'NO — missing: '+prepMissing.join(',')} Entry:${document.getElementById('entry-in').value||'—'} SL:${document.getElementById('sl-in').value||'—'} TP:${document.getElementById('tp-in').value||'—'} Contracts:${document.getElementById('calc-result').textContent} Risk:${document.getElementById('calc-risk').textContent} Profit:${document.getElementById('calc-profit').textContent} RR:${document.getElementById('calc-rr').textContent} P&L:$${S.pnl} DD:$${S.dd} Trades:${S.trades} InHours:${inH?'YES':'NO'} News:${S.checks.has('news_ext')?'YES':'NO'} Notes:${document.getElementById('notes').value||'none'}`;
 }
-function addM(role,content){
+function addM(role,content,imgSrc){
   const c=document.getElementById('msgs');
   const d=document.createElement('div');d.className='msg '+role;
   const av=document.createElement('div');av.className='mav '+role;av.textContent=role==='caddy'?'SC':'YOU';
   const b=document.createElement('div');b.className='mb';
-  b.innerHTML=content.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+  if(imgSrc){
+    const img=document.createElement('img');
+    img.src=imgSrc;
+    img.style.cssText='max-width:100%;max-height:200px;border-radius:6px;display:block;margin-bottom:6px;border:1px solid var(--border2)';
+    b.appendChild(img);
+  }
+  if(content&&content!=='[Chart screenshot]'){
+    const txt=document.createElement('span');
+    txt.innerHTML=content.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    b.appendChild(txt);
+  }
   d.appendChild(av);d.appendChild(b);c.appendChild(d);c.scrollTop=c.scrollHeight;
+  if(role==='caddy' && typeof speakText === 'function') speakText(content);
 }
 function showTyping(){
   const c=document.getElementById('msgs');
@@ -844,19 +875,33 @@ function showTyping(){
   d.appendChild(av);d.appendChild(b);c.appendChild(d);c.scrollTop=c.scrollHeight;return d;
 }
 async function sendM(){
-  const inp=document.getElementById('cin');const text=inp.value.trim();if(!text)return;
+  const inp=document.getElementById('cin');const text=inp.value.trim();
+  if(!text&&!pendingImage)return;
   inp.value='';document.getElementById('sndbtn').disabled=true;
-  addM('user',text);S.hist.push({role:'user',content:text+'\n\n['+ctx()+']'});
+  const displayText=text||(pendingImage?'[Chart screenshot]':'');
+  addM('user',displayText,pendingImage?pendingImage.data:null);
+  let userContent;
+  if(pendingImage){
+    const base64=pendingImage.data.split(',')[1];
+    userContent=[
+      {type:'image',source:{type:'base64',media_type:pendingImage.type,data:base64}},
+      {type:'text',text:(text||'What do you see on this chart?')+'\n\n['+ctx()+']'}
+    ];
+  } else {
+    userContent=text+'\n\n['+ctx()+']';
+  }
+  S.hist.push({role:'user',content:userContent});
+  clearImage();
   const t=showTyping();
   try{
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{
-  'Content-Type':'application/json',
-  'x-api-key':'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',
-  'anthropic-version':'2023-06-01',
-  'anthropic-dangerous-direct-browser-access':'true'
-},
+        'Content-Type':'application/json',
+        'x-api-key': window._apiKey||'',
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
       body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,system:SYS,messages:S.hist})
     });
     const data=await r.json();
@@ -870,6 +915,7 @@ async function sendM(){
 function qM(m){document.getElementById('cin').value=m;sendM();}
 function hKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendM();}}
 function toggleVoice(){
+  if(micLocked){ unlockMic(); return; }
   if(!('webkitSpeechRecognition'in window)&&!('SpeechRecognition'in window)){addM('caddy','⚠️ Voice input needs Chrome or Edge.');return;}
   if(S.listening){S.rec.stop();return;}
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -880,6 +926,187 @@ function toggleVoice(){
   r.onend=()=>{S.listening=false;document.getElementById('vbtn').classList.remove('on');document.getElementById('vbtn').textContent='🎤';document.getElementById('vstatus').classList.remove('show');};
   r.start();
 }
+// IMAGE UPLOAD
+let pendingImage=null;
+function handleImage(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    pendingImage={data:ev.target.result,type:file.type};
+    document.getElementById("img-preview").src=ev.target.result;
+    document.getElementById("img-preview-wrap").style.display="block";
+  };
+  reader.readAsDataURL(file);
+  e.target.value="";
+}
+function clearImage(){
+  pendingImage=null;
+  document.getElementById("img-preview-wrap").style.display="none";
+  document.getElementById("img-preview").src="";
+}
+// CTRL+V PASTE IMAGE
+document.addEventListener('paste', e=>{
+  const items=e.clipboardData&&e.clipboardData.items;
+  if(!items)return;
+  for(let i=0;i<items.length;i++){
+    if(items[i].type.indexOf('image')!==-1){
+      const file=items[i].getAsFile();
+      if(!file)return;
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        pendingImage={data:ev.target.result,type:file.type};
+        document.getElementById('img-preview').src=ev.target.result;
+        document.getElementById('img-preview-wrap').style.display='block';
+        document.getElementById('cin').focus();
+        addM('caddy',"📎 Chart pasted — add a note or just hit Send and I'll read it.");
+      };
+      reader.readAsDataURL(file);
+      e.preventDefault();
+      break;
+    }
+  }
+});
+
+// ── VOICE OUTPUT (CADDY SPEAKS) ──
+let caddyVoiceOn = false;
+let selectedVoice = null;
+let holdTimer = null;
+let micLocked = false;
+let holdStartY = 0;
+
+function toggleCaddyVoice(){
+  caddyVoiceOn = !caddyVoiceOn;
+  document.getElementById('voice-track').className = 'ttrack' + (caddyVoiceOn ? ' on' : '');
+}
+
+function loadVoices(){
+  const voices = speechSynthesis.getVoices();
+  const sel = document.getElementById('voice-sel');
+  if(!sel || voices.length === 0) return;
+  sel.innerHTML = '';
+  voices.filter(v => v.lang.startsWith('en')).forEach((v, i) => {
+    const o = document.createElement('option');
+    o.value = v.name;
+    o.textContent = v.name;
+    sel.appendChild(o);
+  });
+  // Default to a good voice
+  const preferred = ['Microsoft Guy Online','Microsoft David','Google US English','Alex'];
+  for(const p of preferred){
+    const found = voices.find(v => v.name.includes(p.split(' ')[1])||v.name === p);
+    if(found){ sel.value = found.name; selectedVoice = found; break; }
+  }
+  if(!selectedVoice && voices.length > 0) selectedVoice = voices[0];
+}
+
+function setVoice(){
+  const sel = document.getElementById('voice-sel');
+  const voices = speechSynthesis.getVoices();
+  selectedVoice = voices.find(v => v.name === sel.value) || voices[0];
+}
+
+function speakText(text){
+  if(!caddyVoiceOn) return;
+  speechSynthesis.cancel();
+  const clean = text.replace(/<[^>]*>/g,'').replace(/\*\*/g,'').replace(/⚠️|✅|🚫|📅|🧠|📊|⭐|🏌️|📋|⏱️|🔍|🎤|📎/g,'');
+  const utt = new SpeechSynthesisUtterance(clean);
+  const rate = parseFloat(document.getElementById('voice-rate')?.value || '1.0');
+  utt.rate = rate;
+  utt.pitch = 1.0;
+  utt.volume = 1.0;
+  if(selectedVoice) utt.voice = selectedVoice;
+  speechSynthesis.speak(utt);
+}
+
+if(typeof speechSynthesis !== 'undefined'){
+  speechSynthesis.onvoiceschanged = loadVoices;
+  setTimeout(loadVoices, 500);
+}
+
+// ── HOLD TO LOCK MIC ──
+function startHold(e){
+  if(e) holdStartY = e.touches ? e.touches[0].clientY : e.clientY;
+  holdTimer = setTimeout(() => {
+    // Held for 500ms — show slide up prompt
+    document.getElementById('vbtn').style.transform = 'translateY(-4px)';
+    document.getElementById('vstatus').textContent = '↑ Slide up to lock';
+    document.getElementById('vstatus').classList.add('show');
+  }, 500);
+}
+
+function endHold(e){
+  clearTimeout(holdTimer);
+  const btn = document.getElementById('vbtn');
+  btn.style.transform = '';
+  const endY = e ? (e.changedTouches ? e.changedTouches[0].clientY : e.clientY) : holdStartY;
+  const movedUp = holdStartY - endY > 40;
+  if(movedUp){
+    // Lock the mic
+    lockMic();
+  } else {
+    document.getElementById('vstatus').textContent = '🎤 LISTENING...';
+  }
+}
+
+function lockMic(){
+  micLocked = true;
+  document.getElementById('lock-indicator').style.display = 'block';
+  document.getElementById('vstatus').classList.remove('show');
+  document.getElementById('vbtn').classList.add('on');
+  document.getElementById('vbtn').textContent = '🔒';
+  addM('caddy', "Locked in and listening. Talk to me — I'll respond after each pause.");
+  startContinuousListening();
+}
+
+function unlockMic(){
+  micLocked = false;
+  document.getElementById('lock-indicator').style.display = 'none';
+  document.getElementById('vbtn').classList.remove('on');
+  document.getElementById('vbtn').textContent = '🎤';
+  if(S.rec){ try{ S.rec.stop(); }catch(e){} }
+  S.listening = false;
+  addM('caddy', "Mic unlocked.");
+}
+
+function startContinuousListening(){
+  if(!micLocked) return;
+  if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)){
+    addM('caddy','⚠️ Voice input needs Chrome or Edge.');
+    unlockMic();
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const r = new SR();
+  S.rec = r;
+  r.lang = 'en-US';
+  r.continuous = false;
+  r.interimResults = false;
+  r.onresult = e => {
+    const transcript = e.results[0][0].transcript;
+    document.getElementById('cin').value = transcript;
+    sendM();
+  };
+  r.onerror = () => {
+    if(micLocked) setTimeout(startContinuousListening, 1000);
+  };
+  r.onend = () => {
+    S.listening = false;
+    if(micLocked) setTimeout(startContinuousListening, 300);
+  };
+  r.start();
+  S.listening = true;
+}
+
+// Load API key from Electron if available, fallback to hardcoded
+window._apiKey = '';
+async function loadApiKey(){
+  if(window.electronAPI){
+    const key = await window.electronAPI.getApiKey();
+    if(key) window._apiKey = key;
+  }
+}
+loadApiKey();
+
 buildTickers();loadOrder();initDrag();upRec();upAlerts(false);updateSLTPLabels();
 </script>
 </body>
